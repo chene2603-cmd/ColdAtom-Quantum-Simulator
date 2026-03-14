@@ -5,72 +5,208 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>ColdAtom Quantum Simulator v3.0</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f9f9f9; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f5f7fa;
+      color: #333;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+    }
+    .controls {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .control-group {
+      display: flex;
+      align-items: center;
+      margin: 8px 0;
+    }
+    label {
+      width: 120px;
+      font-weight: bold;
+    }
+    canvas {
+      background: white;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      display: block;
+      margin: 0 auto;
+    }
     .watermark {
       position: fixed;
       bottom: 10px;
       right: 10px;
-      background: white;
+      background: rgba(255, 255, 255, 0.9);
       padding: 6px 10px;
-      border: 1px solid #ccc;
+      border: 1px solid #ddd;
       font-size: 12px;
       color: #666;
+      border-radius: 4px;
       z-index: 1000;
     }
-    #app { display: none; } /* 默认隐藏，验证通过才显示 */
-    #blocked { display: none; color: red; text-align: center; padding: 50px; }
+    #blocked {
+      text-align: center;
+      padding: 60px 20px;
+      color: #e74c3c;
+      display: none;
+    }
+    #app { display: none; }
   </style>
 </head>
 <body>
-  <div id="blocked">
-    <h2>⚠️ Unauthorized Access</h2>
-    <p>This simulator is protected and only available at the official site.</p>
-    <p>Please visit the authorized domain or contact the author for access.</p>
-    <p><strong>Contact:</strong> [your-email@example.com]</p>
-  </div>
+  <div class="container">
+    <div id="blocked">
+      <h2>⚠️ Unauthorized Access</h2>
+      <p>This simulator is protected and only available at the official site.</p>
+      <p>Contact the author for authorized access.</p>
+      <p><strong>Email:</strong> 534055736@qq.com</p>
+    </div>
 
-  <div id="app">
-    <!-- 你的原始 Canvas 和 UI 内容放在这里 -->
-    <h1>ColdAtom Quantum Simulator v3.0</h1>
-    <canvas id="latticeCanvas" width="400" height="400"></canvas>
-    <!-- 其他控件... -->
+    <div id="app">
+      <h1>ColdAtom Quantum Simulator v3.0</h1>
+      
+      <div class="controls">
+        <div class="control-group">
+          <label for="v0Slider">Lattice Depth V₀:</label>
+          <input type="range" id="v0Slider" min="1" max="20" value="10" step="0.1">
+          <span id="v0Value">10.0</span>
+        </div>
+        <div class="control-group">
+          <label for="uSlider">Interaction U/t:</label>
+          <input type="range" id="uSlider" min="0" max="50" value="25" step="0.5">
+          <span id="uValue">25.0</span>
+        </div>
+        <div class="control-group">
+          <label>Phase:</label>
+          <span id="phaseLabel" style="font-weight: bold; color: #2980b9;">Superfluid</span>
+        </div>
+      </div>
+
+      <canvas id="latticeCanvas" width="600" height="500"></canvas>
+    </div>
   </div>
 
   <div class="watermark">
-    © 2026 [Your Name]. All rights reserved.<br>
-    Contact: [your-email@example.com]
+    © 2026 陈先生. All rights reserved.<br>
+    Contact: 534055736@qq.com
   </div>
 
   <script>
-    // =============== 域名验证（关键保护）===============
+    // =============== 域名白名单保护 ===============
     const allowedDomains = [
-      'localhost', // 开发时允许
+      'localhost',
       '127.0.0.1',
-      '[YOUR_DEPLOYED_DOMAIN]' // ←←← 请替换成你的真实部署域名！
+      'your-deployed-domain.vercel.app' // ←←← 部署后请替换为你的实际域名！
     ];
 
-    const currentHost = window.location.hostname;
-    const isAllowed = allowedDomains.some(domain => 
-      currentHost === domain || currentHost.endsWith('.' + domain)
+    const host = window.location.hostname;
+    const isAllowed = allowedDomains.some(d => 
+      host === d || host.endsWith('.' + d)
     );
 
     if (!isAllowed) {
       document.getElementById('app').style.display = 'none';
       document.getElementById('blocked').style.display = 'block';
-      console.warn('Access denied. This application is restricted to authorized domains.');
+      throw new Error('Unauthorized domain');
     } else {
       document.getElementById('app').style.display = 'block';
-      
-      // =============== 你的物理模拟逻辑（此处应为混淆后的代码）===============
-      // 示例：你可以把原始 JS 用 obfuscator.io 混淆后粘贴在这里
-      // 下面是占位示意（实际请替换为完整混淆代码）
-      (function() {
-        // >>> PASTE YOUR OBFUSCATED PHYSICS SIMULATION CODE HERE <<<
-        // e.g., calculateT, updatePhaseDiagram, renderCanvas, etc.
-        console.log("ColdAtom Simulator loaded on authorized domain.");
-      })();
-      // ======================================================================
     }
+
+    // =============== 核心物理与绘图逻辑 ===============
+    (function() {
+      const canvas = document.getElementById('latticeCanvas');
+      const ctx = canvas.getContext('2d');
+      const v0Slider = document.getElementById('v0Slider');
+      const uSlider = document.getElementById('uSlider');
+      const v0Value = document.getElementById('v0Value');
+      const uValue = document.getElementById('uValue');
+      const phaseLabel = document.getElementById('phaseLabel');
+
+      function calculateT(V0) {
+        return (4 / Math.sqrt(Math.PI)) * Math.pow(V0, 0.75) * Math.exp(-2 * Math.sqrt(V0));
+      }
+
+      function getPhase(U_over_t) {
+        return U_over_t < 25 ? 'Superfluid' : 'Mott Insulator';
+      }
+
+      function drawSimulation(V0, U_over_t) {
+        const t = calculateT(V0);
+        const phase = getPhase(U_over_t);
+        phaseLabel.textContent = phase;
+        phaseLabel.style.color = U_over_t < 25 ? '#27ae60' : '#e74c3c';
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#ecf0f1';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const nSites = 15;
+        const spacing = canvas.width / (nSites + 1);
+        const yCenter = canvas.height / 2;
+
+        ctx.beginPath();
+        ctx.moveTo(0, yCenter);
+        for (let i = 0; i <= nSites; i++) {
+          const x = i * spacing;
+          const y = yCenter + 80 * Math.sin(i * Math.PI * 2 / nSites);
+          ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = '#95a5a6';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        const orderParam = U_over_t < 25 ? Math.sqrt(1 - U_over_t/30) : 0;
+        for (let i = 0; i < nSites; i++) {
+          const x = (i + 1) * spacing;
+          const radius = 12 + orderParam * 20;
+          const fluct = (Math.random() - 0.5) * (U_over_t < 25 ? 0.3 : 0.02) * 20;
+
+          const gradient = ctx.createRadialGradient(x, yCenter + fluct, 0, x, yCenter + fluct, radius);
+          gradient.addColorStop(0, phase === 'Superfluid' ? 'rgba(41, 128, 185, 0.8)' : 'rgba(231, 76, 60, 0.9)');
+          gradient.addColorStop(1, 'rgba(255,255,255,0.2)');
+
+          ctx.beginPath();
+          ctx.arc(x, yCenter + fluct, radius, 0, Math.PI * 2);
+          ctx.fillStyle = gradient;
+          ctx.fill();
+        }
+
+        ctx.fillStyle = '#2c3e50';
+        ctx.font = '14px Arial';
+        ctx.fillText(`V₀ = ${V0.toFixed(1)}`, 20, 30);
+        ctx.fillText(`U/t ≈ ${U_over_t.toFixed(1)}`, 20, 50);
+        ctx.fillText(`t ∝ exp(-2√V₀)`, 20, 70);
+      }
+
+      let V0 = parseFloat(v0Slider.value);
+      let U_over_t = parseFloat(uSlider.value);
+      v0Value.textContent = V0.toFixed(1);
+      uValue.textContent = U_over_t.toFixed(1);
+      drawSimulation(V0, U_over_t);
+
+      v0Slider.addEventListener('input', () => {
+        V0 = parseFloat(v0Slider.value);
+        v0Value.textContent = V0.toFixed(1);
+        drawSimulation(V0, U_over_t);
+      });
+
+      uSlider.addEventListener('input', () => {
+        U_over_t = parseFloat(uSlider.value);
+        uValue.textContent = U_over_t.toFixed(1);
+        drawSimulation(V0, U_over_t);
+      });
+    })();
   </script>
 </body>
 </html>
