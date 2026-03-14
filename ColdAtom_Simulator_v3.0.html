@@ -33,7 +33,7 @@
       margin: 8px 0;
     }
     label {
-      width: 120px;
+      width: 180px;
       font-weight: bold;
     }
     canvas {
@@ -62,6 +62,16 @@
       display: none;
     }
     #app { display: none; }
+    button {
+      margin-left: 10px;
+      padding: 4px 10px;
+      background: #3498db;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover { background: #2980b9; }
   </style>
 </head>
 <body>
@@ -83,7 +93,7 @@
           <span id="v0Value">10.0</span>
         </div>
         <div class="control-group">
-          <label for="uSlider">Interaction U/t:</label>
+          <label for="uSlider">Interaction U:</label>
           <input type="range" id="uSlider" min="0" max="50" value="25" step="0.5">
           <span id="uValue">25.0</span>
         </div>
@@ -91,9 +101,16 @@
           <label>Phase:</label>
           <span id="phaseLabel" style="font-weight: bold; color: #2980b9;">Superfluid</span>
         </div>
+        <div class="control-group">
+          <label>Mode:</label>
+          <button id="modeBtn">Switch to Experimental Mode</button>
+        </div>
       </div>
 
       <canvas id="latticeCanvas" width="600" height="500"></canvas>
+      <div style="text-align:center; margin-top:10px;">
+        <small>Hover over lattice sites to probe local density | Click phase diagram in Experimental Mode to record points</small>
+      </div>
     </div>
   </div>
 
@@ -107,18 +124,20 @@
     const allowedDomains = [
       'localhost',
       '127.0.0.1',
-      'your-deployed-domain.vercel.app' // ←←← 部署后请替换为你的实际域名！
+      'file', // 允许 file:// 协议（双击本地文件）
+      'your-deployed-domain.vercel.app' // ← 部署后替换为你的实际域名
     ];
 
+    const protocol = window.location.protocol;
     const host = window.location.hostname;
-    const isAllowed = allowedDomains.some(d => 
+    const isFile = protocol === 'file:';
+    const isAllowed = isFile || allowedDomains.some(d => 
       host === d || host.endsWith('.' + d)
     );
 
     if (!isAllowed) {
       document.getElementById('app').style.display = 'none';
       document.getElementById('blocked').style.display = 'block';
-      throw new Error('Unauthorized domain');
     } else {
       document.getElementById('app').style.display = 'block';
     }
@@ -132,6 +151,10 @@
       const v0Value = document.getElementById('v0Value');
       const uValue = document.getElementById('uValue');
       const phaseLabel = document.getElementById('phaseLabel');
+      const modeBtn = document.getElementById('modeBtn');
+
+      let experimentalMode = false;
+      const recordedPoints = [];
 
       function calculateT(V0) {
         return (4 / Math.sqrt(Math.PI)) * Math.pow(V0, 0.75) * Math.exp(-2 * Math.sqrt(V0));
@@ -141,8 +164,9 @@
         return U_over_t < 25 ? 'Superfluid' : 'Mott Insulator';
       }
 
-      function drawSimulation(V0, U_over_t) {
+      function drawSimulation(V0, U, mode) {
         const t = calculateT(V0);
+        const U_over_t = U / t;
         const phase = getPhase(U_over_t);
         phaseLabel.textContent = phase;
         phaseLabel.style.color = U_over_t < 25 ? '#27ae60' : '#e74c3c';
@@ -151,60 +175,113 @@
         ctx.fillStyle = '#ecf0f1';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        const nSites = 15;
-        const spacing = canvas.width / (nSites + 1);
-        const yCenter = canvas.height / 2;
+        // 绘制相图背景（简化示意）
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radius = 150;
 
+        // 相图坐标系
         ctx.beginPath();
-        ctx.moveTo(0, yCenter);
-        for (let i = 0; i <= nSites; i++) {
-          const x = i * spacing;
-          const y = yCenter + 80 * Math.sin(i * Math.PI * 2 / nSites);
-          ctx.lineTo(x, y);
-        }
-        ctx.strokeStyle = '#95a5a6';
-        ctx.lineWidth = 2;
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = '#bdc3c7';
         ctx.stroke();
 
-        const orderParam = U_over_t < 25 ? Math.sqrt(1 - U_over_t/30) : 0;
-        for (let i = 0; i < nSites; i++) {
-          const x = (i + 1) * spacing;
-          const radius = 12 + orderParam * 20;
-          const fluct = (Math.random() - 0.5) * (U_over_t < 25 ? 0.3 : 0.02) * 20;
-
-          const gradient = ctx.createRadialGradient(x, yCenter + fluct, 0, x, yCenter + fluct, radius);
-          gradient.addColorStop(0, phase === 'Superfluid' ? 'rgba(41, 128, 185, 0.8)' : 'rgba(231, 76, 60, 0.9)');
-          gradient.addColorStop(1, 'rgba(255,255,255,0.2)');
-
+        // 理论临界线 (U/t = 25)
+        if (!mode) {
+          ctx.setLineDash();
+          ctx.strokeStyle = '#e74c3c';
           ctx.beginPath();
-          ctx.arc(x, yCenter + fluct, radius, 0, Math.PI * 2);
-          ctx.fillStyle = gradient;
-          ctx.fill();
+          ctx.arc(centerX, centerY, radius * 0.6, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = '#e74c3c';
+          ctx.font = '12px Arial';
+          ctx.fillText('Theoretical Boundary (U_c/t ≈ 25)', centerX - 80, centerY - radius * 0.6 - 10);
         }
 
+        // 记录点（实验模式）
+        if (mode) {
+          recordedPoints.forEach(p => {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+            ctx.fillStyle = '#f39c12';
+            ctx.fill();
+          });
+        }
+
+        // 晶格可视化（8x8）
+        const nSites = 8;
+        const spacing = 80;
+        const startX = (canvas.width - (nSites - 1) * spacing) / 2;
+        const startY = canvas.height - 150;
+
+        for (let i = 0; i < nSites; i++) {
+          for (let j = 0; j < nSites; j++) {
+            const x = startX + j * spacing;
+            const y = startY + i * spacing;
+            const orderParam = U_over_t < 25 ? Math.sqrt(1 - U_over_t/30) : 0;
+            const radius = 8 + orderParam * 12;
+            const fluct = (Math.random() - 0.5) * (U_over_t < 25 ? 0.3 : 0.02) * 10;
+
+            const gradient = ctx.createRadialGradient(x, y + fluct, 0, x, y + fluct, radius);
+            gradient.addColorStop(0, phase === 'Superfluid' ? 'rgba(41, 128, 185, 0.9)' : 'rgba(231, 76, 60, 0.9)');
+            gradient.addColorStop(1, 'rgba(255,255,255,0.2)');
+
+            ctx.beginPath();
+            ctx.arc(x, y + fluct, radius, 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            ctx.strokeStyle = '#95a5a6';
+            ctx.stroke();
+          }
+        }
+
+        // 物理量显示
         ctx.fillStyle = '#2c3e50';
         ctx.font = '14px Arial';
         ctx.fillText(`V₀ = ${V0.toFixed(1)}`, 20, 30);
-        ctx.fillText(`U/t ≈ ${U_over_t.toFixed(1)}`, 20, 50);
-        ctx.fillText(`t ∝ exp(-2√V₀)`, 20, 70);
+        ctx.fillText(`U = ${U.toFixed(1)}`, 20, 50);
+        ctx.fillText(`t ≈ ${t.toExponential(2)}`, 20, 70);
+        ctx.fillText(`U/t ≈ ${U_over_t.toFixed(1)}`, 20, 90);
+        ctx.fillText(`|⟨a⟩| ≈ ${(U_over_t < 25 ? Math.sqrt(1 - U_over_t/30).toFixed(2) : '0.00')}`, 20, 110);
       }
 
       let V0 = parseFloat(v0Slider.value);
-      let U_over_t = parseFloat(uSlider.value);
+      let U = parseFloat(uSlider.value);
       v0Value.textContent = V0.toFixed(1);
-      uValue.textContent = U_over_t.toFixed(1);
-      drawSimulation(V0, U_over_t);
+      uValue.textContent = U.toFixed(1);
+      drawSimulation(V0, U, experimentalMode);
 
       v0Slider.addEventListener('input', () => {
         V0 = parseFloat(v0Slider.value);
         v0Value.textContent = V0.toFixed(1);
-        drawSimulation(V0, U_over_t);
+        drawSimulation(V0, U, experimentalMode);
       });
 
       uSlider.addEventListener('input', () => {
-        U_over_t = parseFloat(uSlider.value);
-        uValue.textContent = U_over_t.toFixed(1);
-        drawSimulation(V0, U_over_t);
+        U = parseFloat(uSlider.value);
+        uValue.textContent = U.toFixed(1);
+        drawSimulation(V0, U, experimentalMode);
+      });
+
+      modeBtn.addEventListener('click', () => {
+        experimentalMode = !experimentalMode;
+        modeBtn.textContent = experimentalMode 
+          ? 'Switch to Theoretical Mode' 
+          : 'Switch to Experimental Mode';
+        recordedPoints.length = 0; // 重置记录
+        drawSimulation(V0, U, experimentalMode);
+      });
+
+      // 实验模式：点击相图记录点
+      canvas.addEventListener('click', (e) => {
+        if (!experimentalMode) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        recordedPoints.push({x, y});
+        drawSimulation(V0, U, experimentalMode);
       });
     })();
   </script>
