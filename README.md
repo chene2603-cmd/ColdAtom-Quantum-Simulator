@@ -48,7 +48,7 @@ Based on the cold atom optical lattice system, the core physical models include:
 ## 🛠️ Technical Stack
 
 - **Frontend**: HTML5 + Canvas (visualization) + Vanilla JavaScript (physical calculation & interaction)  
-- **Dependence**: Only `numeric.min.js` (for matrix eigenvalue calculation, CDN introduced)  
+- **Dependence**: None (pure vanilla JS)  
 - **Compatibility**: Support all modern browsers (PC/macOS/Pad), responsive layout.
 
 ## 📖 Use Cases
